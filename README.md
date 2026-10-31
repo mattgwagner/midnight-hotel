@@ -1,6 +1,6 @@
 # Midnight Hotel
 
-A small spooky browser game in one HTML file. Explore numbered hotel rooms with a flashlight, search drawers for keys and batteries, hide in a wardrobe when the lights flicker, and keep your light on Bolt the Bear before he creeps too close. Survive until 6 AM and find Door 100.
+A small spooky browser game in one HTML file. Explore numbered hotel rooms with a flashlight, search drawers for keys and batteries, hide in a wardrobe when the lights flicker, and keep your light on Bolt the Bear before he creeps too close. Somewhere past room 30, eyes open on the walls… and then the Watcher comes. Survive until 6 AM and find Door 100.
 
 All art and sound are drawn and synthesized in code (Canvas 2D + Web Audio), no assets.
 
