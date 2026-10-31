@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Midnight Hotel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #f3e9ff;
+    --dim: #a89bbd;
+    --hint: #7fe3ff;
+    --gold: #e8b64a;
+    --blood: #ff4d5e;
+    --panel: rgba(12, 6, 20, 0.72);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #050208; overflow: hidden; }
+  body { font-family: "Fredoka", system-ui, sans-serif; color: var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { position: fixed; inset: 0; display: block; cursor: none; }
+  .hud { position: fixed; top: max(12px, env(safe-area-inset-top)); display: flex; gap: 10px; align-items: center; pointer-events: none; font-weight: 600; font-size: clamp(13px, 2.2vw, 17px); }
+  .hud.left { left: 16px; flex-wrap: wrap; max-width: 60vw; }
+  .hud.right { right: 16px; }
+  .chip { background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+  .chip.door { font-family: "Creepster", cursive; font-size: 1.25em; letter-spacing: 1px; color: var(--gold); }
+  .battery { display: inline-block; width: 46px; height: 12px; border: 2px solid var(--ink); border-radius: 3px; vertical-align: -1px; position: relative; margin-left: 4px; }
+  .battery::after { content: ""; position: absolute; right: -5px; top: 2px; width: 3px; height: 4px; background: var(--ink); }
+  .battery i { position: absolute; inset: 1px auto 1px 1px; background: #7dff9a; border-radius: 1px; }
+  .clock { font-family: "Creepster", cursive; font-size: 1.5em; letter-spacing: 1px; }
+  button { font: inherit; cursor: pointer; }
+  #mute { pointer-events: auto; background: var(--panel); color: var(--ink); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 6px 10px; }
+  #hint { position: fixed; left: 16px; right: 16px; bottom: max(18px, env(safe-area-inset-bottom)); text-align: center; color: var(--hint); font-size: clamp(14px, 2.4vw, 19px); text-shadow: 0 0 12px rgba(127,227,255,0.7); pointer-events: none; transition: opacity .5s; }
+  #toast { position: fixed; left: 50%; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 44px); transform: translateX(-50%); max-width: min(90vw, 520px); text-align: center; background: var(--panel); border: 1px solid rgba(255,255,255,0.1); padding: 10px 16px; border-radius: 14px; font-size: clamp(14px, 2.4vw, 18px); pointer-events: none; opacity: 0; transition: opacity .35s; }
+  #toast.on { opacity: 1; }
+  #banner { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .6s; }
+  #banner.on { opacity: 1; }
+  #banner div { font-family: "Creepster", cursive; font-size: clamp(42px, 11vw, 120px); color: var(--gold); text-shadow: 0 0 30px rgba(232,182,74,0.6), 0 4px 0 #000; text-align: center; line-height: 1; padding: 0 16px; }
+  #banner small { display: block; font-family: "Fredoka", sans-serif; font-size: 0.22em; color: var(--ink); margin-top: 12px; letter-spacing: 0; }
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(10,4,18,0.55), rgba(5,2,8,0.92)); }
+  .overlay[hidden] { display: none; }
+  .card { text-align: center; max-width: 560px; }
+  .card h1 { font-family: "Creepster", cursive; font-weight: 400; font-size: clamp(44px, 10vw, 96px); margin: 0; color: var(--gold); text-shadow: 0 0 28px rgba(232,182,74,0.5), 0 4px 0 #000; line-height: 0.95; }
+  .card h2 { font-family: "Creepster", cursive; font-weight: 400; font-size: clamp(48px, 12vw, 104px); margin: 0; color: var(--blood); text-shadow: 0 0 24px rgba(255,77,94,0.55), 0 4px 0 #000; }
+  .card p { font-size: clamp(15px, 2.6vw, 19px); color: var(--dim); line-height: 1.5; margin: 14px 0 22px; }
+  .card p b { color: var(--ink); font-weight: 600; }
+  .big { background: var(--gold); color: #1a0f00; border: 0; border-radius: 999px; padding: 14px 30px; font-size: clamp(17px, 3vw, 21px); font-weight: 600; box-shadow: 0 0 24px rgba(232,182,74,0.45); }
+  .big:active { transform: scale(0.97); }
+  .best { margin-top: 14px; font-size: 14px; color: var(--dim); }
+  #scareCard { background: rgba(5,2,8,0.6); }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="hud left">
+  <span class="chip door" id="doorChip">DOOR 001</span>
+  <span class="chip" id="coinChip">🪙 0</span>
+  <span class="chip" id="keyChip" hidden>🔑 0</span>
+  <span class="chip">🔦<span class="battery"><i id="batt"></i></span></span>
+</div>
+<div class="hud right">
+  <span class="chip"><span class="clock" id="clock">12 AM</span> · <span id="night">Night 1</span></span>
+  <button id="mute" aria-label="Toggle sound">🔊</button>
+</div>
+
+<div id="hint"></div>
+<div id="toast"></div>
+<div id="banner"><div id="bannerText"></div></div>
+
+<div class="overlay" id="start">
+  <div class="card">
+    <h1>The<br>Midnight Hotel</h1>
+    <p>Open the doors. Search the drawers. When the lights flicker, <b>hide in a wardrobe</b>.<br>
+       If Bolt the Bear creeps closer, <b>keep your flashlight on him</b>.<br>
+       Survive until <b>6 AM</b>… and find <b>Door 100</b>.</p>
+    <button class="big" id="enter">Enter the hotel</button>
+    <div class="best" id="best"></div>
+  </div>
+</div>
+
+<div class="overlay" id="scareCard" hidden>
+  <div class="card">
+    <h2 id="scareTitle">BOO!</h2>
+    <p id="scareText"></p>
+    <button class="big" id="scareOk">Keep exploring</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('scene');
+  const ctx = cv.getContext('2d');
+  const dark = document.createElement('canvas');
+  const dctx = dark.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+  const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  let W = 0, H = 0, DPR = 1, T = 0;
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    for (const c of [cv, dark]) { c.width = Math.round(W * DPR); c.height = Math.round(H * DPR); }
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // ---------- sound (all synthesized, nothing to download) ----------
+  let AC = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (AC) return;
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain();
+    master.gain.value = S.muted ? 0 : 0.7;
+    master.connect(AC.destination);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // low hotel hum
+    for (const f of [55, 55.6, 82.4]) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.frequency.value = f; g.gain.value = 0.018;
+      o.connect(g).connect(master); o.start();
+    }
+  }
+  function env(g, t0, attack, dur, vol) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + dur);
+  }
+  function tone(f, dur, { type = 'sine', vol = 0.12, to = null, delay = 0, attack = 0.01 } = {}) {
+    if (!AC) return;
+    const t0 = AC.currentTime + delay;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t0);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + attack + dur);
+    env(g, t0, attack, dur, vol);
+    o.connect(g).connect(master);
+    o.start(t0); o.stop(t0 + attack + dur + 0.05);
+  }
+  function noise(dur, { vol = 0.2, freq = 800, to = null, q = 1, type = 'lowpass', delay = 0, attack = 0.005 } = {}) {
+    if (!AC) return;
+    const t0 = AC.currentTime + delay;
+    const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t0);
+    if (to) f.frequency.exponentialRampToValueAtTime(to, t0 + attack + dur);
+    const g = AC.createGain(); env(g, t0, attack, dur, vol);
+    s.connect(f).connect(g).connect(master);
+    s.start(t0); s.stop(t0 + attack + dur + 0.05);
+  }
+  const sfx = {
+    creak() { tone(190, 0.7, { type: 'sawtooth', vol: 0.04, to: 95 }); noise(0.6, { type: 'bandpass', freq: 700, to: 350, q: 9, vol: 0.12 }); },
+    thump() { noise(0.15, { freq: 220, vol: 0.4 }); tone(70, 0.2, { vol: 0.25, to: 40 }); },
+    step() { noise(0.07, { freq: 260, vol: 0.18 }); },
+    coin() { tone(988, 0.07, { type: 'square', vol: 0.05 }); tone(1319, 0.25, { type: 'square', vol: 0.05, delay: 0.08 }); },
+    key() { tone(1568, 0.15, { type: 'triangle', vol: 0.1 }); tone(2093, 0.35, { type: 'triangle', vol: 0.1, delay: 0.12 }); },
+    battery() { tone(400, 0.15, { type: 'square', vol: 0.04, to: 800 }); tone(800, 0.25, { type: 'square', vol: 0.04, delay: 0.15, to: 1200 }); },
+    giggle() { for (let i = 0; i < 5; i++) tone(rand(850, 1100), 0.07, { vol: 0.05, to: rand(1200, 1500), delay: i * 0.09 }); },
+    rattle() { for (let i = 0; i < 4; i++) noise(0.04, { type: 'bandpass', freq: 2400, q: 3, vol: 0.16, delay: i * 0.07 }); },
+    unlock() { tone(620, 0.05, { type: 'square', vol: 0.06 }); tone(940, 0.12, { type: 'square', vol: 0.06, delay: 0.08 }); },
+    servo() { tone(330, 0.3, { type: 'square', vol: 0.035, to: 180 }); tone(260, 0.3, { type: 'square', vol: 0.035, to: 140, delay: 0.32 }); },
+    rumble() { noise(1.4, { freq: 90, to: 900, vol: 0.45, attack: 3.2 }); tone(42, 1.4, { type: 'sawtooth', vol: 0.12, attack: 3.2 }); },
+    whoosh() { noise(1.0, { type: 'bandpass', freq: 250, to: 3200, q: 0.8, vol: 0.55 }); },
+    scare() { noise(0.7, { freq: 3500, to: 300, vol: 0.3 }); tone(520, 0.7, { type: 'sawtooth', vol: 0.16, to: 110 }); },
+    chimes() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 1.4, { vol: 0.1, delay: i * 0.45, attack: 0.02 })); },
+    flicker() { noise(0.05, { type: 'highpass', freq: 3000, vol: 0.05 }); },
+  };
+
+  // ---------- state ----------
+  const S = {
+    started: false, muted: store.get('mh-muted') === '1',
+    coins: 0, keys: 0, battery: 100, dodges: 0, shyBolts: 0,
+    night: 1, clock: 0, lastRush: -10,
+    best: Number(store.get('mh-best') || 0),
+    mouse: { x: innerWidth / 2, y: innerHeight / 2 },
+    room: null, bolt: null, rush: null, hiding: false,
+    doorAnim: 0, fade: 0, fadeDir: 0, shake: 0, lamp: 1,
+    jump: null, eyes: [], particles: [], eyeTimer: 3, peek: 0,
+  };
+
+  const PALETTE = [350, 15, 35, 150, 190, 255, 285];
+  const NOTES = [
+    'Note: "Room service is closed. Forever."',
+    'Note: "Bolt the Bear\'s favorite song is the Beep-Boop Lullaby."',
+    'Note: "If the lights flicker, don\'t ask questions. HIDE."',
+    'Note: "The pizza here is 40% glitter."',
+    'Note: "Never trust a hallway that hums."',
+    'Note: "Bolt is shy. Bright lights make him blush."',
+    'Note: "Checkout time is 6 AM. Be there."',
+    'Note: "Whoever keeps leaving socks in the drawers: STOP."',
+  ];
+  const NOTHING = ['Empty. Just dust.', 'Nothing but a single sock.', 'A cold french fry. Gross.', 'Empty…?', 'A tiny note: "boo."'];
+
+  function makeRoom(n) {
+    const locked = n > 1 && n % 5 === 0;
+    const pool = ['coin', 'coin', 'coin', 'battery', 'battery', 'nothing', 'nothing', 'note', 'spider'];
+    const drawers = [pick(pool), pick(pool)];
+    if (locked) drawers[Math.random() < 0.5 ? 0 : 1] = 'key';
+    const canRush = n >= 4 && n - S.lastRush >= 3 && Math.random() < 0.4;
+    if (canRush) S.lastRush = n;
+    const dark = n > 2 && Math.random() < 0.4;
+    S.bolt = !canRush && n >= 3 && Math.random() < (dark ? 0.55 : 0.2)
+      ? { s: 0.6, side: Math.random() < 0.5 ? -1 : 1, lit: 0, state: 'lurk', alpha: 1, wait: rand(1.5, 3.5), stepAt: 0.7 }
+      : null;
+    return {
+      n, hue: pick(PALETTE), wardSide: Math.random() < 0.5 ? 'L' : 'R', locked, unlocked: false,
+      drawers, open: [0, 0], opened: [false, false], dark, time: 0,
+      painting: pick(['ghost', 'moon', 'eyes', 'bolt']), wink: 0,
+      rushAt: canRush ? rand(2.5, 6) : 0, wardTaken: Math.random() < 0.12,
+    };
+  }
+
+  function geo() {
+    const portrait = W < H * 0.9;
+    const bw = W * (portrait ? 0.86 : 0.56), bh = H * (portrait ? 0.5 : 0.6);
+    const bx = (W - bw) / 2, by = H * (portrait ? 0.2 : 0.15), fy = by + bh;
+    const R = S.room;
+    const dW = Math.min(bw * 0.26, bh * 0.46), dH = bh * 0.74;
+    const door = { x: W / 2 - dW / 2, y: fy - dH, w: dW, h: dH };
+    const wW = bw * 0.21, wH = bh * 0.86;
+    const ward = { x: R.wardSide === 'L' ? bx + bw * 0.04 : bx + bw * 0.96 - wW, y: fy - wH, w: wW, h: wH };
+    const rW = bw * 0.22, rH = bh * 0.3;
+    const dres = { x: R.wardSide === 'L' ? bx + bw * 0.96 - rW : bx + bw * 0.04, y: fy - rH, w: rW, h: rH };
+    const drawers = [0, 1].map(i => ({ x: dres.x + rW * 0.08, y: dres.y + rH * (0.12 + i * 0.44), w: rW * 0.84, h: rH * 0.36 }));
+    const paint = { x: dres.x + rW * 0.1, y: by + bh * 0.12, w: rW * 0.8, h: bh * 0.3 };
+    const candle = { x: dres.x + rW * 0.78, y: dres.y - bh * 0.06 };
+    const lamp = { x: W / 2, y: by * 0.72 + 10 };
+    return { bx, by, bw, bh, fy, door, ward, dres, drawers, paint, candle, lamp };
+  }
+
+  function flashR() {
+    const base = clamp(Math.min(W, H) / 800, 0.7, 1.3);
+    let r = (70 + S.battery * 1.2) * base;
+    if (S.battery < 15 && Math.random() < 0.08) r *= 0.4;
+    return S.hiding ? 0 : r;
+  }
+
+  function boltPose(g, B) {
+    const k = (B.s - 0.6) / 1.3;
+    const u = g.bh * 0.075 * B.s;
+    const x = W / 2 + B.side * g.bw * 0.33 * (1 + k * 0.35) + (B.lit > 0 ? rand(-1.5, 1.5) : 0);
+    const footY = g.fy + (H - g.fy) * 0.85 * k;
+    return { x, footY, u, headY: footY - u * 3.95 };
+  }
+
+  // ---------- UI helpers ----------
+  let toastTimer = 0;
+  function toast(text, secs = 2.6) { const el = $('toast'); el.textContent = text; el.classList.add('on'); toastTimer = secs; }
+  let bannerTimer = 0;
+  function banner(html, secs = 4) { $('bannerText').innerHTML = html; $('banner').classList.add('on'); bannerTimer = secs; }
+  function confetti(n = 120) {
+    const colors = ['#e8b64a', '#ff4d5e', '#7fe3ff', '#b78cff', '#7dff9a'];
+    for (let i = 0; i < n; i++) S.particles.push({ kind: 'confetti', x: rand(0, W), y: rand(-H * 0.3, 0), vx: rand(-40, 40), vy: rand(80, 220), rot: rand(0, 6), vr: rand(-6, 6), life: 0, max: rand(3, 5), color: pick(colors), size: rand(5, 10) });
+  }
+  function floatText(x, y, text) { S.particles.push({ kind: 'text', x, y, vx: 0, vy: -50, life: 0, max: 1.4, text }); }
+  function poof(x, y) { for (let i = 0; i < 10; i++) S.particles.push({ kind: 'smoke', x, y, vx: rand(-60, 60), vy: rand(-60, 30), life: 0, max: rand(0.4, 0.8), size: rand(4, 10) }); }
+
+  function updateHud() {
+    $('doorChip').textContent = 'DOOR ' + String(S.room.n).padStart(3, '0');
+    $('coinChip').textContent = '🪙 ' + S.coins;
+    $('keyChip').hidden = S.keys === 0;
+    $('keyChip').textContent = '🔑 ' + S.keys;
+    const b = $('batt');
+    b.style.width = clamp(S.battery, 0, 100) * 0.4 + 'px';
+    b.style.background = S.battery < 15 ? '#ff4d5e' : S.battery < 40 ? '#e8b64a' : '#7dff9a';
+    const hour = Math.floor(S.clock / 60);
+    $('clock').textContent = (hour === 0 ? 12 : hour) + ' AM';
+    $('night').textContent = 'Night ' + S.night;
+    $('mute').textContent = S.muted ? '🔇' : '🔊';
+  }
+
+  function hintText() {
+    const R = S.room;
+    if (!S.started) return '';
+    if (S.rush && S.rush.phase === 'warn' && !S.hiding) return 'The lights are flickering… HIDE in the wardrobe!';
+    if (S.hiding) return S.rush ? 'Shhh…' : 'Cozy in here. Tap anywhere to step out.';
+    if (S.bolt && S.bolt.state === 'lurk' && S.bolt.s > 0.75) return 'Something is creeping closer… shine your light on it!';
+    if (R.locked && !R.unlocked) return S.keys ? 'You have a key. Open the door!' : 'This door is locked. Search the drawers for a key.';
+    if (S.battery < 15) return 'Flashlight is dying. Drawers sometimes hold batteries.';
+    if (R.n === 1) return 'Shine your flashlight around. Tap the door to go deeper.';
+    return '';
+  }
+
+  // ---------- actions ----------
+  function openDrawer(i, g) {
+    const R = S.room;
+    if (R.opened[i]) return;
+    R.opened[i] = true;
+    sfx.thump();
+    const d = g.drawers[i], cx = d.x + d.w / 2, cy = d.y;
+    switch (R.drawers[i]) {
+      case 'coin': { const n = 1 + Math.floor(Math.random() * 5); S.coins += n; floatText(cx, cy, '🪙 +' + n); sfx.coin(); break; }
+      case 'key': S.keys++; floatText(cx, cy, '🔑'); toast('You found a key!'); sfx.key(); break;
+      case 'battery': S.battery = Math.min(100, S.battery + 45); floatText(cx, cy, '🔋 +45'); sfx.battery(); break;
+      case 'note': toast(pick(NOTES), 3.5); floatText(cx, cy, '📜'); break;
+      case 'spider': S.particles.push({ kind: 'spider', x: cx, y: g.by, top: g.by, to: cy - 20, life: 0, max: 3 }); toast('Eek! A spider. It waves hi.'); sfx.giggle(); break;
+      default: toast(pick(NOTHING));
+    }
+  }
+
+  function tryDoor() {
+    const R = S.room;
+    if (S.rush) { toast('No time for doors — HIDE!'); return; }
+    if (S.doorAnim > 0 || S.fadeDir) return;
+    if (R.locked && !R.unlocked) {
+      if (!S.keys) { sfx.rattle(); toast('Locked. Search the drawers for a key.'); return; }
+      S.keys--; R.unlocked = true; sfx.unlock();
+    }
+    S.doorAnim = 0.001;
+    sfx.creak();
+  }
+
+  function enterNextRoom() {
+    S.room = makeRoom(S.room.n + 1);
+    S.eyes = []; S.particles = S.particles.filter(p => p.kind === 'confetti');
+    sfx.step(); setTimeout(sfx.step, 260);
+    if (S.room.n > S.best) { S.best = S.room.n; store.set('mh-best', String(S.best)); }
+    if (S.room.n === 100) { banner('DOOR 100!<small>You reached the top of the Midnight Hotel!</small>', 5); confetti(200); sfx.chimes(); }
+  }
+
+  function hide() {
+    const R = S.room;
+    if (R.wardTaken && !S.rush) {
+      R.wardTaken = false; S.peek = 1.4; sfx.giggle();
+      toast('This wardrobe is… taken. 👀');
+      return;
+    }
+    S.hiding = true; sfx.thump();
+  }
+
+  function jumpscare(kind) {
+    S.jump = { kind, t: 0, carded: false };
+    S.hiding = false; S.shake = 1;
+    sfx.scare();
+  }
+
+  function showScareCard() {
+    const k = S.jump.kind;
+    $('scareTitle').textContent = k === 'rush' ? 'WHOOSH!' : 'BEEP BOOP!';
+    $('scareText').innerHTML = k === 'rush'
+      ? 'The Rusher got you! (It just wanted to say hi.)<br>Next time the lights flicker, <b>hide in a wardrobe</b>.'
+      : 'Bolt the Bear snuck up for a hug!<br>Keep your <b>flashlight on him</b> and he gets too shy to move.';
+    $('scareCard').hidden = false;
+  }
+  $('scareOk').addEventListener('click', () => { $('scareCard').hidden = true; S.jump = null; S.bolt = null; });
+
+  // ---------- input ----------
+  function setMouse(e) { S.mouse.x = e.clientX; S.mouse.y = e.clientY; }
+  cv.addEventListener('pointermove', setMouse);
+  cv.addEventListener('pointerdown', e => {
+    setMouse(e);
+    if (!S.started || S.jump || S.fadeDir) return;
+    const { x, y } = S.mouse;
+    if (S.hiding) {
+      if (!S.rush || S.rush.phase === 'warn') { S.hiding = false; sfx.thump(); }
+      return;
+    }
+    const g = geo(), R = S.room;
+    for (const ey of S.eyes) if (dist(x, y, ey.x, ey.y) < 30 && !ey.gone) { ey.gone = true; poof(ey.x, ey.y); sfx.giggle(); return; }
+    for (let i = 0; i < 2; i++) if (inRect(x, y, g.drawers[i])) { openDrawer(i, g); return; }
+    if (inRect(x, y, g.ward)) { hide(); return; }
+    if (inRect(x, y, g.door)) { tryDoor(); return; }
+    if (inRect(x, y, g.paint)) { R.wink = 0.6; sfx.giggle(); return; }
+  });
+  $('enter').addEventListener('click', () => {
+    initAudio(); AC.resume?.();
+    $('start').hidden = true;
+    S.started = true;
+    toast('Welcome to the Midnight Hotel. Checkout is at 6 AM.', 3.5);
+  });
+  $('mute').addEventListener('click', () => {
+    S.muted = !S.muted; store.set('mh-muted', S.muted ? '1' : '0');
+    if (master) master.gain.value = S.muted ? 0 : 0.7;
+    updateHud();
+  });
+  if (S.best > 1) $('best').textContent = 'Your best: Door ' + String(S.best).padStart(3, '0');
+
+  // ---------- update ----------
+  const motes = Array.from({ length: 60 }, () => ({ x: Math.random(), y: Math.random(), vx: rand(-0.012, 0.012), vy: rand(-0.008, 0.008) }));
+
+  function update(dt) {
+    const R = S.room, g = geo();
+    for (const m of motes) { m.x = (m.x + m.vx * dt + 1) % 1; m.y = (m.y + m.vy * dt + 1) % 1; }
+    S.shake = Math.max(0, S.shake - dt * 2);
+    if (toastTimer > 0 && (toastTimer -= dt) <= 0) $('toast').classList.remove('on');
+    if (bannerTimer > 0 && (bannerTimer -= dt) <= 0) $('banner').classList.remove('on');
+
+    for (const p of S.particles) {
+      p.life += dt;
+      if (p.kind === 'spider') { const k = Math.min(1, p.life / 0.8); p.y = p.top + (p.to - p.top) * (p.life < 2.2 ? k : Math.max(0, 1 - (p.life - 2.2) / 0.8)); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.kind === 'confetti') p.rot += p.vr * dt;
+    }
+    S.particles = S.particles.filter(p => p.life < p.max);
+
+    // eyes in the dark
+    S.eyeTimer -= dt;
+    if (S.eyeTimer <= 0 && S.eyes.length < 3 && !S.hiding) {
+      S.eyeTimer = rand(3, 7);
+      const spots = [
+        () => ({ x: rand(12, g.bx * 0.8), y: rand(g.by, g.fy) }),
+        () => ({ x: rand(g.bx + g.bw + g.bx * 0.2, W - 12), y: rand(g.by, g.fy) }),
+        () => ({ x: rand(g.bx, g.bx + g.bw), y: rand(10, g.by * 0.7) }),
+      ];
+      const s = pick(spots)();
+      if (dist(s.x, s.y, S.mouse.x, S.mouse.y) > flashR() + 60) S.eyes.push({ ...s, t: 0, max: rand(6, 11), color: pick(['#fff3a8', '#ffffff', '#ff6b6b', '#9dff9d']), size: rand(3, 6), gap: rand(10, 18) });
+    }
+    const fr = flashR();
+    for (const e of S.eyes) {
+      e.t += dt;
+      if (!e.gone && dist(e.x, e.y, S.mouse.x, S.mouse.y) < fr * 0.6) { e.gone = true; poof(e.x, e.y); if (Math.random() < 0.4) sfx.giggle(); }
+    }
+    S.eyes = S.eyes.filter(e => !e.gone && e.t < e.max);
+
+    if (!S.started) return;
+
+    // door + fade transition
+    if (S.doorAnim > 0) {
+      S.doorAnim = Math.min(1, S.doorAnim + dt * 2.2);
+      if (S.doorAnim >= 1 && !S.fadeDir) S.fadeDir = 1;
+    }
+    if (S.fadeDir) {
+      S.fade = clamp(S.fade + S.fadeDir * dt * 3, 0, 1);
+      if (S.fade >= 1 && S.fadeDir === 1) { enterNextRoom(); S.doorAnim = 0; S.fadeDir = -1; }
+      else if (S.fade <= 0 && S.fadeDir === -1) S.fadeDir = 0;
+    }
+
+    if (S.jump) {
+      S.jump.t += dt;
+      if (S.jump.t > 0.9 && !S.jump.carded) { S.jump.carded = true; showScareCard(); }
+      updateHud();
+      return;
+    }
+
+    R.time += dt;
+    R.wink = Math.max(0, R.wink - dt);
+    S.peek = Math.max(0, S.peek - dt);
+    for (let i = 0; i < 2; i++) if (R.opened[i]) R.open[i] = Math.min(1, R.open[i] + dt * 5);
+
+    // night clock: one real minute per in-game hour
+    S.clock += dt;
+    if (S.clock >= 360) {
+      S.clock = 0;
+      banner(`6 AM<small>You survived Night ${S.night}!</small>`, 5);
+      S.night++; confetti(); sfx.chimes();
+    }
+    S.battery = Math.max(0, S.battery - dt * 0.35);
+
+    // the Rusher
+    if (!S.rush && R.rushAt && R.time > R.rushAt && !S.fadeDir && !S.doorAnim) {
+      S.rush = { phase: 'warn', t: 0, x: -W * 0.4, passed: false };
+      R.rushAt = 0; sfx.rumble();
+    }
+    S.lamp = 1;
+    if (S.rush) {
+      const ru = S.rush;
+      ru.t += dt;
+      if (ru.phase === 'warn') {
+        S.lamp = Math.random() < 0.35 ? 0.1 : 1;
+        if (Math.random() < 0.15) sfx.flicker();
+        if (ru.t > 3.2) { ru.phase = 'run'; ru.t = 0; sfx.whoosh(); }
+      } else {
+        S.lamp = 0.05;
+        ru.x = -W * 0.4 + (ru.t / 1.1) * W * 1.8;
+        S.shake = Math.max(S.shake, 0.5);
+        if (!ru.passed && ru.x > W / 2) {
+          ru.passed = true;
+          if (!S.hiding) { S.rush = null; jumpscare('rush'); return; }
+        }
+        if (ru.t > 1.1) { S.rush = null; S.dodges++; toast('Phew! The Rusher zoomed right past you.'); }
+      }
+    }
+
+    // Bolt the Bear: creeps closer in the dark, freezes and leaves when you hold the light on him
+    const B = S.bolt;
+    if (B && !S.fadeDir) {
+      const p = boltPose(g, B);
+      const lit = !S.hiding && dist(S.mouse.x, S.mouse.y, p.x, p.headY) < fr * 0.85;
+      if (B.state === 'lurk') {
+        if (lit) {
+          B.lit += dt;
+          if (B.lit > 1.1) { B.state = 'leave'; S.shyBolts++; sfx.servo(); toast('Bolt the Bear got shy and shuffled away.'); }
+        } else {
+          B.lit = Math.max(0, B.lit - dt * 0.5);
+          if ((B.wait -= dt) <= 0 && !S.hiding) {
+            B.s += dt * (R.dark ? 0.06 : 0.045);
+            if (B.s > B.stepAt) { B.stepAt += 0.12; sfx.step(); }
+          }
+        }
+        if (B.s >= 1.9) { jumpscare('bolt'); }
+      } else {
+        B.alpha -= dt * 1.1; B.s = Math.max(0.6, B.s - dt * 0.25);
+        if (B.alpha <= 0) S.bolt = null;
+      }
+    }
+    updateHud();
+  }
+
+  // ---------- drawing ----------
+  function poly(pts, fill) {
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  }
+  function rr(x, y, w, h, r, fill) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); if (fill) ctx.fillStyle = fill; ctx.fill(); }
+  function ell(x, y, rx, ry, fill) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); if (fill) ctx.fillStyle = fill; ctx.fill(); }
+  function look(cx, cy, max) {
+    const dx = S.mouse.x - cx, dy = S.mouse.y - cy, d = Math.hypot(dx, dy) || 1;
+    return { x: dx / d * max * Math.min(1, d / 200), y: dy / d * max * Math.min(1, d / 200) };
+  }
+
+  function drawRoom(g) {
+    const { bx, by, bw, bh, fy } = g, h = S.room.hue;
+    poly([[0, 0], [W, 0], [bx + bw, by], [bx, by]], `hsl(${h},18%,8%)`);
+    poly([[0, H], [W, H], [bx + bw, fy], [bx, fy]], `hsl(${(h + 340) % 360},45%,15%)`);
+    poly([[0, 0], [bx, by], [bx, fy], [0, H]], `hsl(${h},26%,12%)`);
+    poly([[W, 0], [bx + bw, by], [bx + bw, fy], [W, H]], `hsl(${h},26%,11%)`);
+    ctx.fillStyle = `hsl(${h},30%,19%)`; ctx.fillRect(bx, by, bw, bh);
+
+    // wallpaper stripes + diamonds
+    ctx.fillStyle = `hsla(${h},40%,30%,0.35)`;
+    for (let x = bx + bw * 0.03; x < bx + bw; x += bw / 18) ctx.fillRect(x, by, bw / 60, bh);
+    ctx.fillStyle = `hsla(${(h + 40) % 360},50%,45%,0.12)`;
+    for (let y = by + bh * 0.06; y < fy - bh * 0.1; y += bh / 9)
+      for (let x = bx + bw / 36; x < bx + bw; x += bw / 18) { ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 4, y); ctx.fill(); }
+
+    // side-wall stripes in perspective
+    ctx.strokeStyle = `hsla(${h},40%,26%,0.4)`; ctx.lineWidth = 2;
+    for (let k = 1; k < 8; k++) {
+      const f = Math.pow(k / 8, 0.75);
+      for (const [x, sx] of [[bx * f, 1], [W - bx * f, -1]]) {
+        const t = sx === 1 ? x / bx : (W - x) / bx;
+        ctx.beginPath(); ctx.moveTo(x, by * t); ctx.lineTo(x, H - (H - fy) * t); ctx.stroke();
+      }
+    }
+    // floor carpet lines
+    const vpY = by + bh * 0.45, kk = (H - vpY) / (fy - vpY);
+    ctx.strokeStyle = `hsla(${(h + 340) % 360},50%,30%,0.35)`; ctx.lineWidth = 1.5;
+    for (let i = 0; i <= 10; i++) { const x0 = bx + bw * i / 10; ctx.beginPath(); ctx.moveTo(x0, fy); ctx.lineTo(W / 2 + (x0 - W / 2) * kk, H); ctx.stroke(); }
+    for (let j = 1; j < 6; j++) {
+      const y = fy + (H - fy) * Math.pow(j / 6, 1.8), t = (y - fy) / (H - fy);
+      ctx.beginPath(); ctx.moveTo(bx * (1 - t), y); ctx.lineTo(W - bx * (1 - t), y); ctx.stroke();
+    }
+    // baseboard + crown
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(bx, fy - bh * 0.035, bw, bh * 0.035); ctx.fillRect(bx, by, bw, bh * 0.02);
+  }
+
+  function drawDoor(g) {
+    const d = g.door, R = S.room, o = S.doorAnim;
+    ctx.fillStyle = '#2a1a10'; ctx.fillRect(d.x - d.w * 0.08, d.y - d.w * 0.08, d.w * 1.16, d.h + d.w * 0.08);
+    ctx.fillStyle = '#020103'; ctx.fillRect(d.x, d.y, d.w, d.h);
+    const pw = d.w * (1 - o * 0.88);
+    ctx.fillStyle = '#5a3520'; ctx.fillRect(d.x, d.y, pw, d.h);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(d.x + pw * 0.15, d.y + d.h * 0.08, pw * 0.7, d.h * 0.36);
+    ctx.fillRect(d.x + pw * 0.15, d.y + d.h * 0.52, pw * 0.7, d.h * 0.38);
+    if (o < 0.5) ell(d.x + pw * 0.86, d.y + d.h * 0.52, d.w * 0.045, d.w * 0.045, '#e8b64a');
+    if (R.locked && !R.unlocked) {
+      const lx = d.x + d.w * 0.86, ly = d.y + d.h * 0.62, s = d.w * 0.09;
+      ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = s * 0.35; ctx.beginPath(); ctx.arc(lx, ly - s * 0.2, s * 0.6, Math.PI, 0); ctx.stroke();
+      rr(lx - s, ly - s * 0.2, s * 2, s * 1.6, s * 0.3, '#c9ccd1');
+    }
+    // number plate
+    const pw2 = d.w * 0.62, ph = d.w * 0.24, px = d.x + d.w / 2 - pw2 / 2, py = d.y - d.w * 0.08 - ph - d.h * 0.04;
+    rr(px, py, pw2, ph, ph * 0.25, '#c99a38');
+    rr(px + 3, py + 3, pw2 - 6, ph - 6, ph * 0.2, '#2a1a10');
+    ctx.fillStyle = '#e8c36a'; ctx.font = `600 ${ph * 0.62}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(R.n).padStart(3, '0'), px + pw2 / 2, py + ph / 2 + 1);
+  }
+
+  function drawWardrobe(g) {
+    const w = g.ward;
+    ctx.fillStyle = '#3b2414'; ctx.fillRect(w.x - 4, w.y - 8, w.w + 8, 10);
+    ctx.fillStyle = '#4a2d19'; ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w.x + w.w / 2, w.y + 4); ctx.lineTo(w.x + w.w / 2, w.y + w.h - 4); ctx.stroke();
+    for (let y = w.y + w.h * 0.1; y < w.y + w.h * 0.55; y += w.h * 0.045) {
+      ctx.beginPath(); ctx.moveTo(w.x + w.w * 0.1, y); ctx.lineTo(w.x + w.w * 0.42, y); ctx.moveTo(w.x + w.w * 0.58, y); ctx.lineTo(w.x + w.w * 0.9, y); ctx.stroke();
+    }
+    ell(w.x + w.w * 0.44, w.y + w.h * 0.62, 3, 3, '#e8b64a');
+    ell(w.x + w.w * 0.56, w.y + w.h * 0.62, 3, 3, '#e8b64a');
+    if (S.peek > 0) {
+      const cx = w.x + w.w / 2;
+      ctx.fillStyle = '#000'; ctx.fillRect(cx - w.w * 0.12, w.y + 6, w.w * 0.24, w.h * 0.55);
+    }
+  }
+
+  function drawDresser(g) {
+    const d = g.dres, R = S.room;
+    ctx.fillStyle = '#3b2414'; ctx.fillRect(d.x - 4, d.y - 6, d.w + 8, 8);
+    ctx.fillStyle = '#4f311c'; ctx.fillRect(d.x, d.y, d.w, d.h);
+    g.drawers.forEach((r, i) => {
+      const o = R.open[i];
+      if (o > 0) {
+        ctx.fillStyle = '#120a06'; ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.fillStyle = '#6a4226'; ctx.fillRect(r.x - 3, r.y + r.h * 0.2 * o, r.w + 6, r.h * (1 + 0.15 * o));
+      } else {
+        ctx.fillStyle = '#5e3b22'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
+      ell(r.x + r.w / 2, r.y + r.h * (0.5 + 0.2 * o), 4, 4, '#e8b64a');
+    });
+    // candle
+    const c = g.candle;
+    ctx.fillStyle = '#efe6d2'; ctx.fillRect(c.x - 4, c.y, 8, d.y - c.y - 6);
+  }
+
+  function drawPainting(g) {
+    const p = g.paint, R = S.room, cx = p.x + p.w / 2, cy = p.y + p.h / 2, m = Math.min(p.w, p.h);
+    ctx.fillStyle = '#9b7a32'; ctx.fillRect(p.x - 6, p.y - 6, p.w + 12, p.h + 12);
+    ctx.fillStyle = '#1a1424'; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.save(); ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
+    const blink = R.wink > 0 || (T % 5.3) < 0.12;
+    if (R.painting === 'moon') {
+      ctx.fillStyle = '#1b2350'; ctx.fillRect(p.x, p.y, p.w, p.h);
+      ell(cx + m * 0.12, cy - m * 0.1, m * 0.22, m * 0.22, '#f4ecc2');
+      ell(cx + m * 0.2, cy - m * 0.16, m * 0.2, m * 0.2, '#1b2350');
+      ctx.fillStyle = '#0a0a12'; ctx.fillRect(p.x, cy + m * 0.25, p.w, p.h);
+      ctx.beginPath(); ctx.moveTo(cx - m * 0.3, cy + m * 0.26); ctx.lineTo(cx - m * 0.18, cy); ctx.lineTo(cx - m * 0.06, cy + m * 0.26); ctx.fill();
+    } else if (R.painting === 'ghost') {
+      ctx.fillStyle = '#2b2140'; ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = '#efeaff'; ctx.beginPath(); ctx.arc(cx, cy - m * 0.05, m * 0.26, Math.PI, 0);
+      ctx.lineTo(cx + m * 0.26, cy + m * 0.32);
+      for (let i = 0; i < 4; i++) ctx.lineTo(cx + m * 0.26 - m * 0.13 * (i + 0.5), cy + m * (i % 2 ? 0.32 : 0.22));
+      ctx.lineTo(cx - m * 0.26, cy + m * 0.32); ctx.fill();
+      const l = look(cx, cy, m * 0.04);
+      for (const s of [-1, 1]) ell(cx + s * m * 0.1 + l.x, cy - m * 0.08 + l.y, m * 0.045, blink ? 1 : m * 0.07, '#1a1424');
+    } else if (R.painting === 'eyes') {
+      const l = look(cx, cy, m * 0.07);
+      for (const s of [-1, 1]) {
+        ell(cx + s * m * 0.2, cy, m * 0.15, blink ? 1.5 : m * 0.1, '#f2efe6');
+        if (!blink) ell(cx + s * m * 0.2 + l.x, cy + l.y * 0.6, m * 0.05, m * 0.05, '#2a0a0a');
+      }
+    } else {
+      ctx.fillStyle = '#301c2c'; ctx.fillRect(p.x, p.y, p.w, p.h);
+      drawBoltHead(cx, cy + m * 0.08, m * 0.28, blink);
+    }
+    ctx.restore();
+  }
+
+  function drawBoltHead(x, y, u, wink = false) {
+    const metal = '#6b5a8e', belly = '#a796c7', deep = '#1b1426';
+    ctx.strokeStyle = '#8f8f9c'; ctx.lineWidth = u * 0.08;
+    ctx.beginPath(); ctx.moveTo(x, y - u * 0.9); ctx.lineTo(x, y - u * 1.4); ctx.stroke();
+    ell(x, y - u * 1.45, u * 0.13, u * 0.13, '#ff4d5e');
+    for (const s of [-1, 1]) { ell(x + s * u * 0.78, y - u * 0.7, u * 0.36, u * 0.36, metal); ell(x + s * u * 0.78, y - u * 0.7, u * 0.19, u * 0.19, belly); }
+    ell(x, y, u, u * 0.92, metal);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = u * 0.04;
+    ctx.beginPath(); ctx.moveTo(x - u * 0.7, y - u * 0.45); ctx.lineTo(x - u * 0.45, y - u * 0.6); ctx.stroke();
+    ell(x, y + u * 0.38, u * 0.55, u * 0.38, belly);
+    ell(x, y + u * 0.2, u * 0.17, u * 0.11, deep);
+    rr(x - u * 0.38, y + u * 0.45, u * 0.76, u * 0.22, u * 0.06, deep);
+    ctx.fillStyle = '#f4f0e6';
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - u * 0.33 + i * u * 0.14, y + u * 0.45, u * 0.09, u * 0.08);
+    for (const s of [-1, 1]) {
+      ell(x + s * u * 0.38, y - u * 0.12, u * 0.24, wink ? u * 0.04 : u * 0.27, '#0b0710');
+      if (!wink) ell(x + s * u * 0.38, y - u * 0.1, u * 0.07, u * 0.07, '#ffffff');
+    }
+  }
+
+  function drawBolt(p, a) {
+    const { x, footY: fy, u } = p, metal = '#6b5a8e', deep2 = '#3d3254', belly = '#a796c7';
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ell(x, fy, u * 1.2, u * 0.25);
+    ctx.fillStyle = deep2; ctx.fillRect(x - u * 0.7, fy - u * 1.3, u * 0.45, u * 1.2); ctx.fillRect(x + u * 0.25, fy - u * 1.3, u * 0.45, u * 1.2);
+    rr(x - u * 0.9, fy - u * 0.32, u * 0.75, u * 0.32, u * 0.12, metal); rr(x + u * 0.15, fy - u * 0.32, u * 0.75, u * 0.32, u * 0.12, metal);
+    rr(x - u * 1.3, fy - u * 3.0, u * 0.42, u * 1.7, u * 0.2, deep2); rr(x + u * 0.88, fy - u * 3.0, u * 0.42, u * 1.7, u * 0.2, deep2);
+    rr(x - u * 0.95, fy - u * 3.2, u * 1.9, u * 2.0, u * 0.55, metal);
+    ell(x, fy - u * 2.1, u * 0.58, u * 0.7, belly);
+    for (const k of [0, 1, 2]) ell(x, fy - u * (2.55 - k * 0.4), u * 0.06, u * 0.06, '#3d3254');
+    ctx.fillStyle = '#c0263a';
+    ctx.beginPath(); ctx.moveTo(x, fy - u * 3.15); ctx.lineTo(x - u * 0.4, fy - u * 3.35); ctx.lineTo(x - u * 0.4, fy - u * 2.95); ctx.closePath();
+    ctx.moveTo(x, fy - u * 3.15); ctx.lineTo(x + u * 0.4, fy - u * 3.35); ctx.lineTo(x + u * 0.4, fy - u * 2.95); ctx.closePath(); ctx.fill();
+    drawBoltHead(x, fy - u * 3.95, u);
+    ctx.restore();
+  }
+  function boltEyeGlow(x, y, u, a) {
+    ctx.save(); ctx.globalAlpha = a; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = u * 0.5;
+    for (const s of [-1, 1]) ell(x + s * u * 0.38, y - u * 0.1, u * 0.07, u * 0.07, '#ffffff');
+    ctx.restore();
+  }
+
+  function drawRusher(x, y, R) {
+    ctx.save();
+    const aura = ctx.createRadialGradient(x, y, R * 0.2, x, y, R * 1.6);
+    aura.addColorStop(0, 'rgba(140,0,20,0.45)'); aura.addColorStop(1, 'rgba(140,0,20,0)');
+    ctx.fillStyle = aura; ctx.fillRect(x - R * 1.6, y - R * 1.6, R * 3.2, R * 3.2);
+    ctx.fillStyle = 'rgba(6,4,6,0.92)';
+    for (let i = 0; i < 26; i++) {
+      const a = i / 26 * Math.PI * 2, wob = Math.sin(T * 9 + i * 1.7) * 0.12;
+      ell(x + Math.cos(a) * R * (0.62 + wob), y + Math.sin(a) * R * (0.55 + wob), R * 0.32, R * 0.32);
+    }
+    ell(x, y, R * 0.75, R * 0.68);
+    for (const s of [-1, 1]) { ell(x + s * R * 0.28, y - R * 0.22, R * 0.14, R * 0.17, '#fff'); ell(x + s * R * 0.25, y - R * 0.2, R * 0.05, R * 0.05, '#000'); }
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.moveTo(x - R * 0.5, y + R * 0.08);
+    ctx.quadraticCurveTo(x, y + R * 0.75, x + R * 0.5, y + R * 0.08);
+    ctx.quadraticCurveTo(x, y + R * 0.32, x - R * 0.5, y + R * 0.08); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = Math.max(1, R * 0.02);
+    ctx.beginPath();
+    for (let i = 0; i <= 8; i++) { const tx = x - R * 0.42 + i * R * 0.105; ctx.lineTo(tx, y + R * (i % 2 ? 0.42 : 0.26)); }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function lightHole(x, y, r, strength) {
+    if (r <= 0 || strength <= 0) return;
+    const gr = dctx.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(0,0,0,${strength})`);
+    gr.addColorStop(0.55, `rgba(0,0,0,${strength * 0.85})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = gr; dctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  function drawHiding() {
+    ctx.fillStyle = '#060304'; ctx.fillRect(0, 0, W, H);
+    const running = S.rush && S.rush.phase === 'run';
+    const light = running ? (Math.random() < 0.5 ? 'rgba(255,60,60,0.75)' : 'rgba(255,240,230,0.5)') : `rgba(255,214,150,${0.22 * S.lamp})`;
+    ctx.fillStyle = light;
+    for (let y = H * 0.18; y < H * 0.72; y += H * 0.055) { ctx.fillRect(W * 0.12, y, W * 0.35, H * 0.012); ctx.fillRect(W * 0.53, y, W * 0.35, H * 0.012); }
+    ctx.fillStyle = '#000'; ctx.fillRect(W / 2 - 3, 0, 6, H);
+  }
+
+  function render() {
+    const R = S.room, g = geo();
+    ctx.save();
+    if (S.shake > 0 && !reduceMotion) ctx.translate(rand(-8, 8) * S.shake, rand(-8, 8) * S.shake);
+    ctx.fillStyle = '#050208'; ctx.fillRect(-20, -20, W + 40, H + 40);
+
+    const fr = flashR();
+    if (S.hiding) {
+      drawHiding();
+    } else {
+      drawRoom(g);
+      drawPainting(g);
+      drawDoor(g);
+      drawWardrobe(g);
+      drawDresser(g);
+      // lamp
+      const L = g.lamp;
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L.x, 0); ctx.lineTo(L.x, L.y - 10); ctx.stroke();
+      ctx.fillStyle = '#3a2e22'; ctx.beginPath(); ctx.moveTo(L.x - 22, L.y); ctx.lineTo(L.x + 22, L.y); ctx.lineTo(L.x + 10, L.y - 14); ctx.lineTo(L.x - 10, L.y - 14); ctx.fill();
+      const lampOn = !R.dark && S.lamp > 0.5;
+      ell(L.x, L.y + 5, 7, 7, lampOn ? '#fff1c4' : '#4a4436');
+
+      const B = S.bolt, bp = B ? boltPose(g, B) : null;
+      if (B) drawBolt(bp, B.alpha);
+
+      // darkness
+      dctx.globalCompositeOperation = 'source-over';
+      dctx.clearRect(0, 0, W, H);
+      dctx.fillStyle = `rgba(3,1,8,${R.dark ? 0.95 : 0.68})`;
+      dctx.fillRect(0, 0, W, H);
+      dctx.globalCompositeOperation = 'destination-out';
+      if (!R.dark) lightHole(L.x, L.y, Math.max(W, H) * 0.5, 0.7 * S.lamp);
+      lightHole(g.candle.x, g.candle.y, 90, 0.55);
+      lightHole(S.mouse.x, S.mouse.y, fr, 1);
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dark, 0, 0); ctx.restore();
+
+      // warm beam tint
+      if (fr > 0) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const gl = ctx.createRadialGradient(S.mouse.x, S.mouse.y, 0, S.mouse.x, S.mouse.y, fr);
+        gl.addColorStop(0, 'rgba(255,220,150,0.10)'); gl.addColorStop(1, 'rgba(255,220,150,0)');
+        ctx.fillStyle = gl; ctx.fillRect(S.mouse.x - fr, S.mouse.y - fr, fr * 2, fr * 2);
+        ctx.fillStyle = 'rgba(255,240,210,0.5)';
+        for (const m of motes) {
+          const mx = m.x * W, my = m.y * H, d = dist(mx, my, S.mouse.x, S.mouse.y);
+          if (d < fr) { ctx.globalAlpha = (1 - d / fr) * 0.7; ctx.fillRect(mx, my, 1.6, 1.6); }
+        }
+        ctx.restore();
+      }
+
+      // things that glow in the dark
+      const c = g.candle, fl = Math.sin(T * 13) * 1.5 + Math.sin(T * 7.3);
+      ctx.save(); ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 16;
+      ell(c.x, c.y - 6 + fl * 0.3, 4, 8 + fl, '#ffcf6b'); ctx.restore();
+      if (B) boltEyeGlow(bp.x, bp.headY, bp.u, B.alpha);
+      if (S.peek > 0) { const w = g.ward; for (const s of [-1, 1]) { ctx.save(); ctx.shadowColor = '#fff3a8'; ctx.shadowBlur = 10; ell(w.x + w.w / 2 + s * 6, w.y + w.h * 0.25, 3, 4, '#fff3a8'); ctx.restore(); } }
+      if (S.doorAnim > 0.3) { const d = g.door; for (const s of [-1, 1]) ell(d.x + d.w * 0.6 + s * 5, d.y + d.h * 0.4, 2.2, 2.8 * Math.min(1, (S.doorAnim - 0.3) * 3), '#ff6b6b'); }
+    }
+
+    for (const e of S.eyes) {
+      const a = Math.min(1, e.t * 2, (e.max - e.t) * 2), bl = (Math.sin(e.t * 2.1 + e.x) > 0.96) ? 0.15 : 1;
+      ctx.save(); ctx.globalAlpha = a; ctx.shadowColor = e.color; ctx.shadowBlur = 10;
+      ell(e.x - e.gap / 2, e.y, e.size, e.size * bl, e.color); ell(e.x + e.gap / 2, e.y, e.size, e.size * bl, e.color);
+      ctx.restore();
+    }
+
+    if (S.rush && S.rush.phase === 'run' && !S.hiding) drawRusher(S.rush.x, g.by + g.bh * 0.55, Math.min(W, H) * 0.24);
+
+    for (const p of S.particles) {
+      const a = clamp(1 - p.life / p.max, 0, 1);
+      ctx.save(); ctx.globalAlpha = p.kind === 'confetti' ? 1 : a;
+      if (p.kind === 'confetti') { ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); }
+      else if (p.kind === 'text') { ctx.font = '600 24px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 6; ctx.fillText(p.text, p.x, p.y); }
+      else if (p.kind === 'smoke') { ell(p.x, p.y, p.size * (1 + p.life * 2), p.size * (1 + p.life * 2), 'rgba(180,170,200,0.5)'); }
+      else if (p.kind === 'spider') {
+        ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(230,230,230,0.6)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.x, p.top); ctx.lineTo(p.x, p.y); ctx.stroke();
+        ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + s * 14, p.y - 6 + i * 4 + Math.sin(T * 12 + i) * 2); ctx.stroke(); }
+        ell(p.x, p.y, 7, 8, '#111'); ell(p.x - 2.5, p.y - 2, 1.6, 1.6, '#ff4d5e'); ell(p.x + 2.5, p.y - 2, 1.6, 1.6, '#ff4d5e');
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // jumpscare face
+    if (S.jump) {
+      const k = Math.min(1, S.jump.t / 0.35), m = Math.min(W, H);
+      ctx.fillStyle = `rgba(0,0,0,${0.6 * k})`; ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      if (!reduceMotion) ctx.translate(rand(-10, 10) * (1 - k * 0.5), rand(-10, 10) * (1 - k * 0.5));
+      if (S.jump.kind === 'rush') drawRusher(W / 2, H / 2, m * 0.45 * (0.3 + 0.7 * k));
+      else { const u = m * 0.26 * (0.3 + 0.7 * k); drawBoltHead(W / 2, H / 2, u); boltEyeGlow(W / 2, H / 2, u, 1); }
+      ctx.restore();
+    }
+
+    // custom flashlight cursor dot
+    if (!S.hiding && S.started) { ctx.fillStyle = 'rgba(255,240,200,0.8)'; ell(S.mouse.x, S.mouse.y, 3, 3); }
+
+    if (S.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${S.fade})`; ctx.fillRect(0, 0, W, H); }
+    const h = hintText(); if ($('hint').textContent !== h) $('hint').textContent = h;
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; T += dt;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+  S.room = makeRoom(1);
+  if (new URLSearchParams(location.search).has('debug')) window.__mh = { S, makeRoom, geo };
+  updateHud();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

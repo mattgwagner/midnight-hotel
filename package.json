@@ -1,0 +1,11 @@
+{
+  "name": "midnight-hotel",
+  "private": true,
+  "scripts": {
+    "start": "bun server.ts",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

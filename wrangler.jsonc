@@ -1,0 +1,7 @@
+{
+  "name": "midnight-hotel",
+  "account_id": "ab1da25c524f59bc61f776304bd88558",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "assets": { "directory": "./public/" }
+}
